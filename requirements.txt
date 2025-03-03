@@ -1,0 +1,7 @@
+pytesseract
+googletrans==4.0.0-rc1
+gtts
+google-generativeai
+firebase-admin
+streamlit
+Pillow
