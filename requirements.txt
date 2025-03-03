@@ -2,6 +2,7 @@ pytesseract
 googletrans==4.0.0-rc1
 gtts
 google-generativeai
+pyngrok
 firebase-admin
 streamlit
-Pillow
+
