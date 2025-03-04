@@ -1,3 +1,6 @@
+import os
+os.environ["STREAMLIT_SERVER_ENABLE_CORS"] = "false"
+os.environ["STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION"] = "false"
 import firebase_admin
 from firebase_admin import credentials, firestore
 import streamlit as st
