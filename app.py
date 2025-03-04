@@ -1,27 +1,29 @@
 import os
 os.environ["STREAMLIT_SERVER_ENABLE_CORS"] = "false"
 os.environ["STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION"] = "false"
-import firebase_admin
-from firebase_admin import credentials, firestore
+import os
 import streamlit as st
 import pytesseract
 from PIL import Image
 from googletrans import Translator
 from gtts import gTTS
+import firebase_admin
+from firebase_admin import credentials, firestore
 import google.generativeai as genai
-import subprocess
-import os
-import time
 
-# ✅ Initialize Firebase (Ensure the JSON file is uploaded to the project)
+# ✅ Fix: Ensure Firebase initializes only once
 if not firebase_admin._apps:
-    cred = credentials.Certificate("finalproject1411-firebase-adminsdk-fbsvc-f119f38ed7.json")
+    cred = credentials.Certificate("firebase_credentials.json")  # Use a local JSON file
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
+# ✅ Set environment variables to fix CORS & XSRF issues
+os.environ["STREAMLIT_SERVER_ENABLE_CORS"] = "false"
+os.environ["STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION"] = "false"
+
 # ✅ Configure Gemini API
-genai.configure(api_key="AIzaSyD2H6p-rJU-uh0hVleY2VQb4Q2ZdJNl0HQ")  # Replace with your actual API key
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))  # Use an environment variable for security
 
 generation_config = {
     "temperature": 1,
@@ -47,35 +49,39 @@ if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # ✅ OCR Processing
-    extracted_text = pytesseract.image_to_string(image)
+    try:
+        # ✅ Fix: Explicitly set Tesseract path if needed
+        pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+        
+        extracted_text = pytesseract.image_to_string(image)
 
-    # ✅ Translation
-    translator = Translator()
-    translated_text = translator.translate(extracted_text, dest=languages[selected_language]).text
-    st.write("### Translated Text:", translated_text)
+        # ✅ Translation
+        translator = Translator()
+        translated_text = translator.translate(extracted_text, dest=languages[selected_language]).text
+        st.write("### Translated Text:", translated_text)
 
-    # ✅ Text-to-Speech
-    tts = gTTS(translated_text, lang=languages[selected_language])
-    audio_path = "translated_audio.mp3"
-    tts.save(audio_path)
-    st.audio(audio_path, format="audio/mp3")
+        # ✅ Text-to-Speech
+        tts = gTTS(translated_text, lang=languages[selected_language])
+        audio_path = "translated_audio.mp3"
+        tts.save(audio_path)
+        st.audio(audio_path, format="audio/mp3")
 
-    # ✅ Chatbot Mode
-    st.write("### Chatbot Mode: Ask questions about the image")
-    user_query = st.text_input("Ask a question:")
+        # ✅ Chatbot Mode
+        st.write("### Chatbot Mode: Ask questions about the image")
+        user_query = st.text_input("Ask a question:")
 
-    if user_query:
-        db.collection("user_queries").add({"query": user_query})  # Store query in Firestore
+        if user_query:
+            db.collection("user_queries").add({"query": user_query})  # Store query in Firestore
 
-        chat_session = model.start_chat(
-            history=[{"role": "user", "parts": [
-                f"Based on the following document text, answer the user's query. Document: {extracted_text}\nQuery: {user_query}"
-            ]}]
-        )
-        response = chat_session.send_message(user_query)
-        st.write("#### Answer:", response.text.strip())
+            chat_session = model.start_chat(
+                history=[{"role": "user", "parts": [
+                    f"Based on the following document text, answer the user's query. Document: {extracted_text}\nQuery: {user_query}"
+                ]}]
+            )
+            response = chat_session.send_message(user_query)
+            st.write("#### Answer:", response.text.strip())
 
-# ✅ Run Streamlit
-if __name__ == "__main__":
-    st.write("App is running...")
+    except pytesseract.pytesseract.TesseractNotFoundError:
+        st.error("Tesseract is not installed. Please check the deployment settings.")
+
+
